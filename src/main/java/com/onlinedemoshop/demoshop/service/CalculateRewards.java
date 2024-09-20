@@ -2,6 +2,8 @@ package com.onlinedemoshop.demoshop.service;
 
 import com.onlinedemoshop.demoshop.exception.InvalidMonthRangeException;
 import com.onlinedemoshop.demoshop.util.TransactionData;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
@@ -12,6 +14,7 @@ import java.util.Map;
 import static com.onlinedemoshop.demoshop.constant.CommonConstants.ENDDATE_INVALID;
 import static com.onlinedemoshop.demoshop.constant.CommonConstants.INVALID_MONTH_RANGE_MESSAGE;
 
+@Slf4j
 @Service
 public class CalculateRewards {
 
@@ -23,11 +26,13 @@ public class CalculateRewards {
         Map<String, Map<String, Integer>> rewards = new HashMap<>();
 
         if (endDate.isBefore(startDate)) {
+            log.error("End date %s is before start date %s", endDate, startDate);
             throw new InvalidMonthRangeException(ENDDATE_INVALID);
         }
 
 
         if (ChronoUnit.MONTHS.between(startDate, endDate) > 3) {
+            log.error(INVALID_MONTH_RANGE_MESSAGE);
             throw new InvalidMonthRangeException(INVALID_MONTH_RANGE_MESSAGE);
         }
 
@@ -58,13 +63,18 @@ public class CalculateRewards {
     }
     private int calculatePoints(BigDecimal amount) {
         int points = 0;
+
         if (amount.compareTo(BigDecimal.valueOf(50)) >= 0) {
-            points += amount.subtract(BigDecimal.valueOf(50)).intValue();
+            points = BigDecimal.valueOf(50).intValue();
+
         }
         if (amount.compareTo(BigDecimal.valueOf(100)) >= 0) {
             points += amount.subtract(BigDecimal.valueOf(100)).intValue() * 2;
+
         }
+        log.info("Points are calculated successfully :  {} for the amount {}", points, amount);
         return points;
+
     }
 
 }

@@ -59,6 +59,6 @@ public class CalculateRewardsTest {
 
         assertEquals(3, rewards.get("1").size());
         assertEquals(50, rewards.get("1").get("AUGUST"));
-        assertEquals(350, rewards.get("1").get("SEPTEMBER"));
+        assertEquals(250, rewards.get("1").get("SEPTEMBER"));
     }
 }

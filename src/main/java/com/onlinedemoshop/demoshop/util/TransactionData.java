@@ -14,7 +14,7 @@ public class TransactionData {
 
     public List<OrderTransaction> getTransactionData() {
         List<OrderTransaction> transactions = new ArrayList<>();
-        transactions.add(new OrderTransaction("1", "1", "1", 1, BigDecimal.valueOf(100.0), LocalDate.of(2024, Month.SEPTEMBER, 10)));
+        transactions.add(new OrderTransaction("1", "1", "1", 1, BigDecimal.valueOf(120.0), LocalDate.of(2024, Month.SEPTEMBER, 10)));
         transactions.add(new OrderTransaction("2", "2", "2", 2, BigDecimal.valueOf(200.0), LocalDate.of(2024, Month.AUGUST, 20)));
         transactions.add(new OrderTransaction("3", "3", "3", 3, BigDecimal.valueOf(300.0), LocalDate.of(2024, Month.AUGUST, 24)));
         transactions.add(new OrderTransaction("4", "4", "4", 4, BigDecimal.valueOf(400.0), LocalDate.of(2024, Month.JULY, 14)));
