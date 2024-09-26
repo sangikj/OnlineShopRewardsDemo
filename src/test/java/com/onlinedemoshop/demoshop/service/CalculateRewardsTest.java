@@ -1,7 +1,9 @@
 package com.onlinedemoshop.demoshop.service;
 
-import com.onlinedemoshop.demoshop.model.OrderTransaction;
-import com.onlinedemoshop.demoshop.util.TransactionData;
+
+import com.onlinedemoshop.demoshop.entity.OrderTransaction;
+import com.onlinedemoshop.demoshop.exception.DataDoesNotExistException;
+import com.onlinedemoshop.demoshop.util.AppUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
@@ -12,9 +14,11 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.Month;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
 public class CalculateRewardsTest {
@@ -23,7 +27,10 @@ public class CalculateRewardsTest {
     private CalculateRewards calculateRewards;
 
     @Mock
-    private TransactionData transactionData;
+    private OrderTransactionRepositoryImpl orderTransactionRepositoryImpl;
+
+    @Mock
+    private AppUtil appUtil;
 
     @BeforeEach
     public void setup() {
@@ -33,32 +40,121 @@ public class CalculateRewardsTest {
     @Test
     public void testCalculateRewardsBasedOnDate() {
 
+    LocalDate startDate = LocalDate.of(2025, Month.JULY, 1);
+    LocalDate endDate = LocalDate.of(2025, Month.SEPTEMBER, 30);
+    when(orderTransactionRepositoryImpl.fetchOrderTransactionDateBetween(startDate, endDate)).thenReturn(Arrays.asList(new OrderTransaction() {{
+        setTransactionDate(startDate.plusDays(1));
+        setTotalAmount(new BigDecimal(120));
+    }}));
+    when(appUtil.calculatePoints(new BigDecimal(120))).thenReturn(90);
+    assertDoesNotThrow(() -> appUtil.validateDateRange(startDate, endDate));
+    assertDoesNotThrow(() -> appUtil.validateMonthRange(startDate, endDate));
+
+    Map<String, Map<String, Integer>> rewards = calculateRewards.calculateRewardsBasedOnDate(startDate, endDate);
+    System.out.println(rewards);
+    assertNotNull(rewards);
+
+    }
+
+    @Test
+    public void testCalculateRewardsBasedOnCustomer() {
         LocalDate startDate = LocalDate.of(2024, Month.JULY, 1);
         LocalDate endDate = LocalDate.of(2024, Month.SEPTEMBER, 30);
-        OrderTransaction transaction1 = OrderTransaction.builder()
-            .transactionId("1")
-            .customerId("1")
-            .productId("1")
-            .quantity(1)
-            .totalAmount(BigDecimal.valueOf(100.0))
-            .transactionDate(LocalDate.of(2024, Month.AUGUST, 10))
-            .build();
-        OrderTransaction transaction2 = OrderTransaction.builder()
-            .transactionId("2")
-            .customerId("1")
-            .productId("2")
-            .quantity(2)
-            .totalAmount(BigDecimal.valueOf(200.0))
-            .transactionDate(LocalDate.of(2024, Month.SEPTEMBER, 10))
-            .build();
-        when(transactionData.getTransactionData()).thenReturn(Arrays.asList(transaction1, transaction2));
+        String customerId = "1";
+        when(orderTransactionRepositoryImpl.getOrderTransactionByCustomerIdAndTransactionDate(customerId, startDate, endDate)).thenReturn(Arrays.asList(new OrderTransaction() {{
+            setTransactionDate(startDate.plusDays(1));
+            setTotalAmount(new BigDecimal(120));
+        }}));
+        when(appUtil.calculatePoints(new BigDecimal(120))).thenReturn(90);
+        assertDoesNotThrow(() -> appUtil.validateDateRange(startDate, endDate));
+        assertDoesNotThrow(() -> appUtil.validateMonthRange(startDate, endDate));
 
+        Map<String, Map<String, Integer>> rewards = calculateRewards.calculateRewardsBasedOnCustomer(customerId, startDate, endDate);
+        System.out.println(rewards);
+        assertNotNull(rewards);
+    }
+
+
+    @Test
+    public void testCalculateRewardsBasedOnDateEmptyList() {
+        LocalDate startDate = LocalDate.of(2025, Month.JULY, 1);
+        LocalDate endDate = LocalDate.of(2025, Month.SEPTEMBER, 30);
+        when(orderTransactionRepositoryImpl.fetchOrderTransactionDateBetween(startDate, endDate)).thenReturn(Collections.emptyList());
 
         Map<String, Map<String, Integer>> rewards = calculateRewards.calculateRewardsBasedOnDate(startDate, endDate);
 
-
-        assertEquals(3, rewards.get("1").size());
-        assertEquals(50, rewards.get("1").get("AUGUST"));
-        assertEquals(250, rewards.get("1").get("SEPTEMBER"));
+        assertTrue(rewards.isEmpty());
     }
+
+    @Test
+    public void testCalculateRewardsBasedOnCustomerEmptyList() {
+        LocalDate startDate = LocalDate.of(2025, Month.JULY, 1);
+        LocalDate endDate = LocalDate.of(2025, Month.SEPTEMBER, 30);
+        String customerId = "1";
+        when(orderTransactionRepositoryImpl.getOrderTransactionByCustomerIdAndTransactionDate(customerId, startDate, endDate)).thenReturn(Collections.emptyList());
+
+        assertThrows(DataDoesNotExistException.class, () -> calculateRewards.calculateRewardsBasedOnCustomer(customerId, startDate, endDate));
+    }
+
+    @Test
+    public void testCalculateRewardsBasedOnCustomerNonEmptyList() {
+        LocalDate startDate = LocalDate.of(2025, Month.JULY, 1);
+        LocalDate endDate = LocalDate.of(2025, Month.SEPTEMBER, 30);
+        String customerId = "1";
+        OrderTransaction transaction = new OrderTransaction();
+        transaction.setCustomerId(customerId);
+        transaction.setTransactionDate(startDate.plusDays(1));
+        transaction.setTotalAmount(new BigDecimal(120));
+        when(orderTransactionRepositoryImpl.getOrderTransactionByCustomerIdAndTransactionDate(customerId, startDate, endDate)).thenReturn(Arrays.asList(transaction));
+        when(appUtil.calculatePoints(transaction.getTotalAmount())).thenReturn(90);
+
+        Map<String, Map<String, Integer>> rewards = calculateRewards.calculateRewardsBasedOnCustomer(customerId, startDate, endDate);
+
+        assertFalse(rewards.isEmpty());
+        assertEquals(90, rewards.get(customerId).get(startDate.plusDays(1).getMonth().toString()).intValue());
+        assertEquals(90, rewards.get(customerId).get("total").intValue());
+    }
+
+
+
+@Test
+public void testFetchOrderTransactionDateBetweenNoMatch() {
+    LocalDate startDate = LocalDate.of(2025, Month.JULY, 1);
+    LocalDate endDate = LocalDate.of(2025, Month.SEPTEMBER, 30);
+    when(orderTransactionRepositoryImpl.fetchOrderTransactionDateBetween(startDate, endDate)).thenReturn(Collections.emptyList());
+
+    List<OrderTransaction> transactions = orderTransactionRepositoryImpl.fetchOrderTransactionDateBetween(startDate, endDate);
+
+    assertTrue(transactions.isEmpty());
+}
+
+@Test
+public void testGetOrderTransactionByCustomerIdAndTransactionDateNoMatch() {
+    LocalDate startDate = LocalDate.of(2025, Month.JULY, 1);
+    LocalDate endDate = LocalDate.of(2025, Month.SEPTEMBER, 30);
+    String customerId = "1";
+    when(orderTransactionRepositoryImpl.getOrderTransactionByCustomerIdAndTransactionDate(customerId, startDate, endDate)).thenReturn(Collections.emptyList());
+
+    List<OrderTransaction> transactions = orderTransactionRepositoryImpl.getOrderTransactionByCustomerIdAndTransactionDate(customerId, startDate, endDate);
+
+    assertTrue(transactions.isEmpty());
+}
+
+@Test
+public void testGetOrderTransactionByCustomerIdAndTransactionDateMatch() {
+    LocalDate startDate = LocalDate.of(2025, Month.JULY, 1);
+    LocalDate endDate = LocalDate.of(2025, Month.SEPTEMBER, 30);
+    String customerId = "1";
+    OrderTransaction transaction = new OrderTransaction();
+    transaction.setCustomerId(customerId);
+    transaction.setTransactionDate(startDate.plusDays(1));
+    transaction.setTotalAmount(new BigDecimal(120));
+    when(orderTransactionRepositoryImpl.getOrderTransactionByCustomerIdAndTransactionDate(customerId, startDate, endDate)).thenReturn(Arrays.asList(transaction));
+
+    List<OrderTransaction> transactions = orderTransactionRepositoryImpl.getOrderTransactionByCustomerIdAndTransactionDate(customerId, startDate, endDate);
+
+    assertFalse(transactions.isEmpty());
+    assertEquals(1, transactions.size());
+    assertEquals(transaction, transactions.get(0));
+}
 }

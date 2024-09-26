@@ -13,6 +13,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 import static com.onlinedemoshop.demoshop.constant.CommonConstants.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.when;
 
 public class CustomExceptionHandlerTest {
@@ -44,6 +45,7 @@ public class CustomExceptionHandlerTest {
         assertEquals(INVALID_DATE_FORMAT_MESSAGE, errorDetails.getMessage());
         assertEquals(INVALID_DATE_FORMAT_ACTION, errorDetails.getAction());
     }
+
 
     @Test
     public void testHandleInvalidMonthRangeException() {
@@ -77,4 +79,43 @@ public class CustomExceptionHandlerTest {
         assertEquals("Global exception", errorDetails.getMessage());
         assertEquals("description", errorDetails.getAction());
     }
+    @Test
+public void testHandleGlobalExceptionWithNullMessage() {
+    Exception ex = new Exception();
+    when(webRequest.getDescription(false)).thenReturn("description");
+
+    ResponseEntity<?> responseEntity = customExceptionHandler.handleGlobalException(ex, webRequest);
+
+    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, responseEntity.getStatusCode());
+    ErrorDetails errorDetails = (ErrorDetails) responseEntity.getBody();
+    assertEquals("Internal Server Error", errorDetails.getCode());
+    assertNull(errorDetails.getMessage());
+    assertEquals("description", errorDetails.getAction());
+}
+
+@Test
+public void testDataDoesNotExist() {
+    DataDoesNotExistException ex = new DataDoesNotExistException();
+
+    ResponseEntity<?> responseEntity = customExceptionHandler.DataDoesNotExist(ex);
+
+    assertEquals(HttpStatus.NOT_FOUND, responseEntity.getStatusCode());
+    ErrorDetails errorDetails = (ErrorDetails) responseEntity.getBody();
+    assertEquals(NODATAFOUND_CODE, errorDetails.getCode());
+    assertEquals(NODATAFOUND_MESSAGE, errorDetails.getMessage());
+    assertEquals(NODATAFOUND_ACTION, errorDetails.getAction());
+}
+
+@Test
+public void testCustomerDoesNotExist() {
+    CustomerDoesNotExistException ex = new CustomerDoesNotExistException();
+
+    ResponseEntity<?> responseEntity = customExceptionHandler.CustomerDoesNotExist(ex);
+
+    assertEquals(HttpStatus.NOT_FOUND, responseEntity.getStatusCode());
+    ErrorDetails errorDetails = (ErrorDetails) responseEntity.getBody();
+    assertEquals(CUSTOMER_NOTFOUND_CODE, errorDetails.getCode());
+    assertEquals(CUSTOMER_NOTFOUND_MESSAGE, errorDetails.getMessage());
+    assertEquals(CUSTOMER_NOTFOUND_ACTION, errorDetails.getAction());
+}
 }

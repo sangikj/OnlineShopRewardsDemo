@@ -1,43 +1,32 @@
 package com.onlinedemoshop.demoshop.service;
 
-import com.onlinedemoshop.demoshop.exception.InvalidMonthRangeException;
-import com.onlinedemoshop.demoshop.util.TransactionData;
+
+import com.onlinedemoshop.demoshop.exception.DataDoesNotExistException;
+import com.onlinedemoshop.demoshop.util.AppUtil;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
-import static com.onlinedemoshop.demoshop.constant.CommonConstants.ENDDATE_INVALID;
-import static com.onlinedemoshop.demoshop.constant.CommonConstants.INVALID_MONTH_RANGE_MESSAGE;
+
 
 @Slf4j
 @Service
 public class CalculateRewards {
 
-    @Autowired
-    private TransactionData transactionData;
 
+    @Autowired
+    private OrderTransactionRepositoryImpl orderTransactionRepositoryImpl;
+
+    @Autowired
+    private AppUtil appUtil;
 
     public Map<String, Map<String, Integer>> calculateRewardsBasedOnDate(LocalDate startDate, LocalDate endDate) {
+        appUtil.validateDateRange(startDate, endDate);
+        appUtil.validateMonthRange(startDate, endDate);
         Map<String, Map<String, Integer>> rewards = new HashMap<>();
-
-        if (endDate.isBefore(startDate)) {
-            log.error("End date %s is before start date %s", endDate, startDate);
-            throw new InvalidMonthRangeException(ENDDATE_INVALID);
-        }
-
-
-        if (ChronoUnit.MONTHS.between(startDate, endDate) > 3) {
-            log.error(INVALID_MONTH_RANGE_MESSAGE);
-            throw new InvalidMonthRangeException(INVALID_MONTH_RANGE_MESSAGE);
-        }
-
-          transactionData.getTransactionData().stream()
-                    .filter(transaction -> transaction.getTransactionDate().isAfter(startDate) && transaction.getTransactionDate().isBefore(endDate))
+        orderTransactionRepositoryImpl.fetchOrderTransactionDateBetween(startDate, endDate).stream()
                     .forEach(transaction -> {
                         if (!rewards.containsKey(transaction.getCustomerId())) {
                             rewards.put(transaction.getCustomerId(), new HashMap<>());
@@ -47,7 +36,7 @@ public class CalculateRewards {
                         if (!monthlyRewards.containsKey(month)) {
                             monthlyRewards.put(month, 0);
                         }
-                        int points = calculatePoints(transaction.getTotalAmount());
+                        int points = appUtil.calculatePoints(transaction.getTotalAmount());
                         monthlyRewards.put(month, monthlyRewards.get(month) + points);
                     });
 
@@ -61,20 +50,40 @@ public class CalculateRewards {
 
         return rewards;
     }
-    private int calculatePoints(BigDecimal amount) {
-        int points = 0;
 
-        if (amount.compareTo(BigDecimal.valueOf(50)) >= 0) {
-            points = BigDecimal.valueOf(50).intValue();
+    public Map<String, Map<String, Integer>> calculateRewardsBasedOnCustomer(String customerId, LocalDate startDate, LocalDate endDate) {
+        appUtil.validateDateRange(startDate, endDate);
+        appUtil.validateMonthRange(startDate, endDate);
+        orderTransactionRepositoryImpl.validateCustomerId(customerId);
+        Map<String, Map<String, Integer>> rewards = new HashMap<>();
+        orderTransactionRepositoryImpl.getOrderTransactionByCustomerIdAndTransactionDate(customerId, startDate,endDate).stream()
+                .forEach(transaction -> {
+                    if (!rewards.containsKey(transaction.getCustomerId())) {
+                        rewards.put(transaction.getCustomerId(), new HashMap<>());
+                    }
+                    Map<String, Integer> monthlyRewards = rewards.get(transaction.getCustomerId());
+                    String month = transaction.getTransactionDate().getMonth().toString();
+                    if (!monthlyRewards.containsKey(month)) {
+                        monthlyRewards.put(month, 0);
+                    }
+                    int points = appUtil.calculatePoints(transaction.getTotalAmount());
+                    monthlyRewards.put(month, monthlyRewards.get(month) + points);
+                });
+        rewards.forEach((customer_Id, monthlyRewards) -> {
+            int totalPoints = monthlyRewards.values().stream()
+                    .mapToInt(Integer::intValue)
+                    .sum();
+            monthlyRewards.put("total", totalPoints);
+        });
+        if(rewards.isEmpty())
+            throw new DataDoesNotExistException("No transactions found for the customer");
 
-        }
-        if (amount.compareTo(BigDecimal.valueOf(100)) >= 0) {
-            points += amount.subtract(BigDecimal.valueOf(100)).intValue() * 2;
 
-        }
-        log.info("Points are calculated successfully :  {} for the amount {}", points, amount);
-        return points;
 
+
+        return rewards;
     }
+
+
 
 }

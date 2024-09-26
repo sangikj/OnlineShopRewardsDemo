@@ -34,6 +34,26 @@ public class CustomExceptionHandler {
         return new ResponseEntity<>(errorDetails, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(DataDoesNotExistException.class)
+    public ResponseEntity<?> DataDoesNotExist(Exception ex) {
+        ErrorDetails errorDetails = ErrorDetails.builder()
+                .code(NODATAFOUND_CODE)
+                .message(NODATAFOUND_MESSAGE)
+                .action(NODATAFOUND_ACTION)
+                .build();
+        return new ResponseEntity<>(errorDetails, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(CustomerDoesNotExistException.class)
+    public ResponseEntity<?> CustomerDoesNotExist(Exception ex) {
+        ErrorDetails errorDetails = ErrorDetails.builder()
+                .code(CUSTOMER_NOTFOUND_CODE)
+                .message(CUSTOMER_NOTFOUND_MESSAGE)
+                .action(CUSTOMER_NOTFOUND_ACTION)
+                .build();
+        return new ResponseEntity<>(errorDetails, HttpStatus.NOT_FOUND);
+    }
+
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<?> handleGlobalException(Exception ex, WebRequest request) {
